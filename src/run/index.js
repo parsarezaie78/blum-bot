@@ -36,12 +36,40 @@ setInterval(async () => {
   }
 }, generatorHelper.randomInt(20, 40) * 60 * 1000);
 
+const runGame = async (user, playPasses) => {
+  const gameDuration = 60 * 1000; // مدت زمان بازی: 60 ثانیه
+  const yellowPointSelectionRate = 0.9; // میانگین 90 درصد انتخاب نقاط زرد
+
+  let totalPoints = await gameService.getTotalYellowPoints(user); // دریافت تعداد کل نقاط زرد
+  let pointsToSelect = Math.floor(totalPoints * yellowPointSelectionRate); // محاسبه 90 درصد از نقاط
+
+  console.log(
+    colors.green(`[User ${user.index}] Starting game. Total yellow points: ${totalPoints}, Points to select: ${pointsToSelect}`)
+  );
+
+  const interval = gameDuration / pointsToSelect; // زمان بین انتخاب هر نقطه
+  for (let i = 0; i < pointsToSelect; i++) {
+    await gameService.selectYellowPoint(user); // انتخاب نقطه زرد
+    await delayHelper.delay(interval); // تأخیر بین انتخاب‌ها
+  }
+
+  console.log(
+    colors.green(`[User ${user.index}] Game finished. Selected ${pointsToSelect} yellow points.`)
+  );
+
+  // افزودن تأخیر تصادفی بین 60 تا 120 ثانیه پس از پایان هر بازی
+  const randomDelay = generatorHelper.randomInt(60, 120) * 1000;
+  console.log(
+    colors.yellow(`[User ${user.index}] Waiting for ${randomDelay / 1000} seconds before next game.`)
+  );
+  await delayHelper.delay(randomDelay);
+};
+
 const run = async (user, index) => {
   let countRetryProxy = 0;
   let countRetryLogin = 0;
   await delayHelper.delay((user.index - 1) * DELAY_ACC);
   while (true) {
-  
     if (database?.ref) {
       user.database = database;
     }
@@ -117,10 +145,9 @@ const run = async (user, index) => {
     );
     countdownList[index].time = (awaitTime + 1) * 60;
     countdownList[index].created = dayjs().unix();
-    const minutesUntilNextGameStart = await gameService.handleGame(
+    const minutesUntilNextGameStart = await runGame(
       user,
-      login.profile?.playPasses,
-      TIME_PLAY_GAME
+      login.profile?.playPasses
     );
     if (minutesUntilNextGameStart !== -1) {
       const offset = dayjs().unix() - countdownList[index].created;
@@ -215,4 +242,4 @@ if (IS_SHOW_COUNTDOWN && users.length) {
   });
 }
 
-setInterval(() => {}, 1000); 
+setInterval(() => {}, 1000);
